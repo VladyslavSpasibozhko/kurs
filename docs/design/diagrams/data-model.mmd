@@ -1,0 +1,70 @@
+erDiagram
+  users {
+    uuid id PK
+    text email UK "trimmed + lowercased"
+    text passwordHash "scrypt$N=…,r=…,p=…$salt$hash"
+    timestamptz createdAt
+  }
+  refresh_tokens {
+    text tokenHash PK "sha256 of token"
+    uuid userId FK
+    boolean used
+    timestamptz expiresAt
+    timestamptz createdAt
+  }
+  notes {
+    uuid id PK
+    uuid userId FK
+    text text
+    timestamptz createdAt
+  }
+  goals {
+    uuid id PK
+    uuid userId FK
+    text title
+    text description "nullable"
+    text status "active | done"
+    date dueDate "nullable"
+    timestamptz createdAt
+    timestamptz completedAt "nullable, set on done"
+  }
+  tasks {
+    uuid id PK
+    uuid userId FK
+    text title
+    text description "nullable"
+    text status "todo | done"
+    boolean important
+    boolean urgent
+    date dueDate "nullable"
+    int durationMin "nullable"
+    date doneAt "nullable, done on this day"
+    timestamptz createdAt
+    timestamptz updatedAt
+  }
+  task_in_goal {
+    uuid id PK
+    uuid goalId FK "ON DELETE CASCADE"
+    uuid taskId FK,UK "ON DELETE CASCADE"
+    text priority "high | medium | low, nullable"
+  }
+  day_plans {
+    uuid id PK
+    uuid userId FK "UNIQUE(userId, day)"
+    date day
+  }
+  task_for_day {
+    uuid id PK
+    uuid dayId FK "UNIQUE(dayId, taskId)"
+    uuid taskId FK "ON DELETE CASCADE"
+  }
+
+  users ||--o{ refresh_tokens : "has"
+  users ||--o{ notes : "owns"
+  users ||--o{ goals : "owns"
+  users ||--o{ tasks : "owns"
+  users ||--o{ day_plans : "owns"
+  goals ||--o{ task_in_goal : "steps"
+  tasks ||--o| task_in_goal : "at most one goal"
+  day_plans ||--o{ task_for_day : "items"
+  tasks ||--o{ task_for_day : "planned on"

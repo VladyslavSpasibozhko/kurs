@@ -1,0 +1,43 @@
+flowchart TB
+  client(["Client — request(route, args), HTTP + cookies"])
+  mcp["MCP server + tools<br/>(later)"]
+
+  app["<b>app.ts</b><br/>cors(CLIENT_URL) · logger() · onError → { code, message, details? } · notFound"]
+
+  appRoutes["<b>App routes</b> — routes/<br/>notes · goals · tasks · day-plans · health<br/>route(): zValidator + 🔒 requireAuth (JWT only, no DB) → userId"]
+  authRoutes["<b>Auth routes</b> — routes/auth<br/>register · login · refresh · logout<br/>🔒 session · 🔒 password"]
+
+  services["<b>Services</b> — services/<br/>NoteService · GoalService · TaskService · DayPlanService<br/>decisions and checks · never see db / tx"]
+  authService["<b>AuthService</b> — auth/<br/>auth.service · password (scrypt)<br/>tokens (JWT + refresh) · cookies"]
+
+  multi["<b>Multi-table repositories</b> — repositories/multi/<br/>note-conversion · goal-steps · day-planning<br/>only place that starts db.transaction"]
+  tables["<b>Table repositories</b> — repositories/tables/<br/>users · refresh-tokens · notes · goals · tasks · day-plans<br/>createXRepo(db | tx) · every query filters by userId"]
+
+  db["<b>db/</b> — Drizzle<br/>schema.ts · client.ts · migrations/"]
+  pg[("PostgreSQL")]
+  mongo[("MongoDB — reflections<br/>(later)")]
+
+  client --> app
+  app --> appRoutes
+  app --> authRoutes
+  appRoutes --> services
+  authRoutes --> authService
+  mcp -.-> services
+  services --> multi
+  services --> tables
+  authService --> tables
+  multi --> tables
+  tables --> db
+  db --> pg
+  tables -.-> mongo
+
+  classDef layer fill:#e6f4ee,stroke:#2f7d5b,color:#123d2b;
+  classDef auth fill:#fdf3e1,stroke:#b7791f,color:#4a3510;
+  classDef store fill:#ede9fe,stroke:#6d28d9,color:#2e1065;
+  classDef later fill:#f4f4f5,stroke:#a1a1aa,color:#52525b,stroke-dasharray: 5 5;
+  classDef edge fill:#ffffff,stroke:#2f7d5b,color:#123d2b;
+  class app,appRoutes,services,multi,tables,db layer;
+  class authRoutes,authService auth;
+  class pg store;
+  class mcp,mongo later;
+  class client edge;
