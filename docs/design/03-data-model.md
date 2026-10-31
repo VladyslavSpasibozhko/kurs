@@ -2,7 +2,7 @@
 
 Status: ✅ approved (2026-10-23) · amended 2026-10-31 (`users`: `passwordHash`, no `googleId`)
 
-Based on `data/data_model_tables_with_names.png`, with fields the requirements need added (➕).
+Based on the original data model diagram, with fields the requirements need added (➕).
 Defined in `server/src/db/schema.ts` (Drizzle). IDs are UUIDs. Column names in camelCase, as in the diagram.
 
 ## Tables

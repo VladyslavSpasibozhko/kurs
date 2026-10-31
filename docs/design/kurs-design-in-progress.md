@@ -8,7 +8,7 @@ metadata:
   modified: 2026-10-31T16:00:00.000Z
 ---
 
-Design for «Курс» (personal goals/tasks app; source docs referred to as `data/`, not in this repo). No code written yet.
+Design for «Курс» (personal goals/tasks app). No code written yet.
 
 - All sections 01–09 in `docs/design/` are approved (last on 2026-10-31). `README.md` lists them; `00-decisions.md` holds every decision with its reason and the amendments to approved sections.
 - Current shape in brief: pnpm workspace with `server` (Node 24 + Hono, Drizzle/Postgres), `client` (React + Vite, TanStack Router/Query, plain CSS + CSS Modules), `@kurs/shared` (domain) and `@kurs/http` (route contract). Email + password auth (scrypt, access JWT + rotating refresh token); Google later. Task shapes: `Task`, `StepItem`, `TaskWithGoal`, `GoalWithTasks`, `DayPlan`. Day plan grouped by goal on the client. Transactions only in `repositories/multi/`.

@@ -1,7 +1,6 @@
 # Kurs — design
 
-Design for the real implementation of «Курс». Source material (functional requirements, infrastructure doc,
-HTML prototype, architecture and data model diagrams) is referred to as `data/`; it is not committed to this repository.
+Design for the real implementation of «Курс».
 
 ## Sections
 
