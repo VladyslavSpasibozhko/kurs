@@ -4,7 +4,7 @@ flowchart TB
 
   app["<b>app.ts</b><br/>cors(CLIENT_URL) · logger() · onError → { code, message, details? } · notFound"]
 
-  appRoutes["<b>App routes</b> — routes/<br/>notes · goals · tasks · day-plans · health<br/>route(): zValidator + 🔒 requireAuth (JWT only, no DB) → userId"]
+  appRoutes["<b>App routes</b> — routes/<br/>🔒 notes · goals · tasks · day-plans · health (public)<br/>route(): zValidator + requireAuth on 🔒 routes (JWT only, no DB) → userId"]
   authRoutes["<b>Auth routes</b> — routes/auth<br/>register · login · refresh · logout<br/>🔒 session · 🔒 password"]
 
   services["<b>Services</b> — services/<br/>NoteService · GoalService · TaskService · DayPlanService<br/>decisions and checks · never see db / tx"]

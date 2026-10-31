@@ -1,16 +1,16 @@
 # Kurs — design
 
-Design for the real implementation of «Курс». Source material lives in `data/`:
-functional requirements, infrastructure doc, HTML prototype, architecture and data model diagrams.
+Design for the real implementation of «Курс». Source material (functional requirements, infrastructure doc,
+HTML prototype, architecture and data model diagrams) is referred to as `data/`; it is not committed to this repository.
 
 ## Sections
 
 | # | Section | Status |
 |---|---|---|
 | 00 | [Decisions log](00-decisions.md) | living document |
-| 01 | [Repository and architecture](01-architecture.md) | ✅ approved (amended 2026-10-23) |
-| 02 | [Shared packages: `@kurs/shared` + `@kurs/http`](02-shared-and-http.md) | ✅ approved |
-| 03 | [Data model](03-data-model.md) | ✅ approved |
+| 01 | [Repository and architecture](01-architecture.md) | ✅ approved (amended 2026-10-23, 2026-10-31) |
+| 02 | [Shared packages: `@kurs/shared` + `@kurs/http`](02-shared-and-http.md) | ✅ approved (amended 2026-10-23, 2026-10-31) |
+| 03 | [Data model](03-data-model.md) | ✅ approved (amended 2026-10-31) |
 | 04 | [API contract](04-api-contract.md) | ✅ approved (second pass 2026-10-23); Progress ⏸ postponed |
 | 05 | [Authentication](05-auth.md) | ✅ approved (2026-10-31, email + password; Google later) |
 | 06 | [Client](06-client.md) | ✅ approved (2026-10-31, plain CSS + CSS Modules instead of Tailwind) |

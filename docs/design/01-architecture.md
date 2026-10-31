@@ -1,6 +1,6 @@
 # 01 — Repository and architecture
 
-Status: ✅ approved · amended 2026-10-23 (`shared` split into `shared` + `http`, see section 02 and `00-decisions.md`)
+Status: ✅ approved · amended 2026-10-23 (`shared` split into `shared` + `http`, see section 02 and `00-decisions.md`); 2026-10-31 (plain CSS + CSS Modules instead of Tailwind; `repositories/` split into `tables/` + `multi/`, see section 09)
 
 ## Repository layout
 
@@ -17,7 +17,7 @@ kurs/
   shared/                 @kurs/shared (domain), only dependency is zod
     src/domain/           common, note, task, goal, day-plan
     src/inputs/           CreateXInput / UpdateXInput
-    src/rules/            quadrantOf, goalProgress
+    src/rules/            quadrantOf, isDoneOn, goalProgress
     src/errors.ts         error codes
 
   http/                   @kurs/http (HTTP contract), depends on @kurs/shared + zod
@@ -27,7 +27,7 @@ kurs/
 
   server/                 Node 24 + Hono
     src/index.ts          start the HTTP server
-    src/app.ts            Hono app: cors, error handler, routes
+    src/app.ts            Hono app: cors, logger, error handler, notFound, routes
     src/env.ts            .env validated with Zod at startup
     src/routes/           one file per resource; registered from @kurs/http via route(); requireAuth → userId
     src/services/         business logic (e.g. TaskService.setDone)

@@ -42,7 +42,7 @@ Exact rule group and `patterns` syntax to be verified against the current Biome 
 - `.env.example` committed; `.env` never committed.
 - One documented start sequence in `README`: `docker compose up -d` → `pnpm db:migrate` → `pnpm dev`.
 
-## CI (GitHub Actions, on PRs to `dev` and `main`)
+## CI (GitHub Actions, on PRs to `development` and `main`)
 
 1. PR title follows Conventional Commits.
 2. `biome ci`
@@ -53,8 +53,8 @@ Dependency caching; build only what changed (tooling to decide).
 
 ## Git workflow
 
-- `feature/*` from `dev` → PR to `dev` (squash) → PR `dev` → `main` (merge commit).
-- No direct pushes to `dev` / `main`; merge only with green CI.
+- `feature/*` from `development` → PR to `development` (squash) → PR `development` → `main` (merge commit).
+- No direct pushes to `development` / `main`; merge only with green CI.
 
 ## Later
 

@@ -64,20 +64,20 @@ Decisions made while planning, with the reason behind each. Newest topics at the
 - Sessions: access JWT + refresh token with rotation and reuse detection (unchanged). Parallel refresh is fixed on the client only: `request()` keeps one shared in-flight refresh promise, every 401 waits for it. `refresh_tokens.used` stays a boolean (no grace window). Accepted: two tabs refreshing at the same moment can trigger reuse detection and log the user out. Possible later: Web Locks (`navigator.locks`) so only one tab refreshes.
 - Cookies: `access` (JWT, `Path=/api`) and `refresh` (32 random bytes, DB keeps SHA-256, `Path=/api/auth`); both HttpOnly, SameSite=Lax, Secure in prod. JWT HS256 via `hono/jwt`, `JWT_SECRET` (≥ 32 chars) in the `.env` schema. Logout marks the refresh token used, clears cookies, always 204. No CSRF tokens (SameSite=Lax + CORS preflight). `requireAuth` checks only the JWT, no DB lookup.
 - `GET /auth/session` for the startup session check (no user profile needed in the UI).
-
-**Google login (later):** `openid-client` v6 (Authorization Code + PKCE; `arctic` rejected — deprecated), state + verifier in a short-lived HttpOnly cookie. Migration adds `users.googleId` (nullable, unique) and makes `passwordHash` nullable.
 - Token lifetimes: access JWT 15 min, refresh token 30 days sliding (each refresh issues a new 30-day token), no absolute limit. Code constants `ACCESS_TTL`, `REFRESH_TTL` in server config (not `.env`).
 - Refresh tokens are never deleted (no cleanup job, no delete on login/refresh). Why: simplest; growth (~3k rows/month per active device) is harmless at this scale. Used rows must stay anyway for reuse detection until they expire.
+
+**Google login (later):** `openid-client` v6 (Authorization Code + PKCE; `arctic` rejected — deprecated), state + verifier in a short-lived HttpOnly cookie. Migration adds `users.googleId` (nullable, unique) and makes `passwordHash` nullable.
 
 ## Data model
 
 - Task ↔ goal via join table `task_in_goal` with `UNIQUE(taskId)`; `weight` renamed to `priority`.
 - `task_for_day.finished` removed (decided 2026-10-23; earlier kept as a column). "Done on day D" = `tasks.doneAt === D`. Why: nothing to keep in sync and no question of which day a reopen touches. Cost: history follows current state — a task done, reopened and done on a later day no longer shows done on the first day.
-- `important` / `urgent` flags stay on tasks even though the matrix page is postponed (quadrant is still shown per task and counted in Progress).
+- `important` / `urgent` flags stay on tasks even though the matrix page is postponed (quadrant is still shown per task; Progress will count it when built).
 - «Терміново» is never set automatically (per «Прийняті рішення» in the requirements).
 - A goal is completed only manually.
 - No system "Without goal" goal (decided 2026-10-23). "No goal" = no `task_in_goal` row. Why: a system goal would need creating at signup and excluding from active-goal counts, progress, the day picker's goal steps and AI `list_goals`, plus guards against deleting or finishing it — more special cases than a null check.
-- Goals page: two parallel requests, `GET /goals/tasks` + `GET /tasks?goal=none`, both with a done/todo filter (default `todo`). Why: separate cache keys, a mutation refetches only what it touches. Rejected: one `GET /goals/overview`.
+- Goals page: two parallel requests, `GET /goals/tasks?status=active&taskStatus=todo` + `GET /tasks/goals?goal=none&status=todo` (updated in the second pass; earlier `GET /tasks?goal=none` with a `todo` default — filters now have no default). Why: separate cache keys, a mutation refetches only what it touches. Rejected: one `GET /goals/overview`.
 - Domain `Task` is plain (changed 2026-10-23; earlier it carried `goalId` / `priority`). Task endpoints return `TaskWithGoal { ...task, priority, goal: Goal | null }` (second pass; earlier nested `TaskItem`), filled by the repository via `LEFT JOIN task_in_goal`; the client never sees the join table.
 - Dates (decided 2026-10-23): days (`day_plans.day`, `dueDate`, `doneAt`) are `YYYY-MM-DD` strings / Postgres `date`; moments (`createdAt`, `updatedAt`, `completedAt`, `expiresAt`) are ISO strings / `timestamptz` in UTC. Why: a day stored as a timestamp moves to another day when read in another time zone or across DST. Rejected: epoch-ms numbers; UTC timestamps for days with client-computed ranges (a plan made in one zone is not found from another). Time zones and DST are not a concern for now.
 - "Today" is decided by the client (decided 2026-10-23): the server does not know the time zone and does not enforce past-day read-only; that is a UI rule. `PAST_DAY_READONLY` error code and `editable` field dropped. Why: simplest option; rejected `X-Timezone` header and `users.timezone`.
@@ -85,10 +85,10 @@ Decisions made while planning, with the reason behind each. Newest topics at the
 
 ## Day plan (decided 2026-10-23)
 
-- No `candidates` endpoint and no combined "add tasks + convert notes" body. Why: each endpoint does one job; the picker reuses existing lists (`/tasks?plannedBefore=`, `/goals`, `/tasks?goal=none`, `/notes`) and shares their cache.
-- `POST /day-plans/:date/items { taskIds }` only adds plan rows; a list (not one request per task) so a selection is saved all or nothing.
+- No `candidates` endpoint and no combined "add tasks + convert notes" body. Why: each endpoint does one job; the picker reuses existing lists (`/day-plans?endDate=…&status=todo`, `/goals/tasks`, `/tasks/goals?goal=none`, `/notes`; second pass — earlier `/tasks?plannedBefore=`, `/goals`, `/tasks?goal=none`) and shares their cache.
+- ~~`POST /day-plans/:date/items { taskIds }`~~ (replaced in the second pass by `POST /day-plans` / `PUT /day-plans/:id/add`, see below) only adds plan rows; a list (not one request per task) so a selection is saved all or nothing.
 - A note is added to a day individually via `POST /notes/:id/convert` with `{ type: 'task', input: { …, planDate } }`.
-- A goal step in the day plan carries its goal (`goal: { id, title }`).
+- A task in the day plan carries its goal (full `Goal` since the second pass; earlier `goal: { id, title }`).
 - Day plan grouped by goal, not by quadrant (decided 2026-10-23; grouping moved to the client in the second pass, see below): originally `GET /day-plans/:date` → `{ date, groups: [{ goal: { id, title }, tasks: TaskItem[] }, …, { goal: null, tasks }] }`, «Без цілі» last; only non-empty groups. «+ Додати» sits in each goal group and creates the task with that `goalId`. Why: the user wants the day organised by goal. Rejected: quadrant → goal nesting, goal → quadrant nesting, client-side quadrant split.
 
 ## Notes (decided 2026-10-23)
@@ -99,7 +99,7 @@ Decisions made while planning, with the reason behind each. Newest topics at the
 
 ## Tasks (decided 2026-10-23)
 
-- One `PATCH /tasks/:id/status` with `{ status: 'done', date } | { status: 'todo' }` replaces `POST /tasks/:id/complete` and `/reopen`. Returns `Task` (200). Why: one endpoint for status; a discriminated union makes `date` required only for `done`. Kept apart from `PATCH /tasks/:id` because of that required `date`.
+- One `PATCH /tasks/:id/status` with `{ status: 'done', date } | { status: 'todo' }` replaces `POST /tasks/:id/complete` and `/reopen`. Returns `TaskWithGoal` (200; earlier `Task`, changed in the second pass). Why: one endpoint for status; a discriminated union makes `date` required only for `done`. Kept apart from `PATCH /tasks/:id` because of that required `date`.
 - ~~`TaskItem { task, goal: { id, title } | null, priority }` is the one shape~~ (replaced by `TaskWithGoal` in the second pass, see below) for a task with its goal: `GET /tasks`, `GET /tasks/by-goal`, day-plan items, and the responses of `POST /tasks`, `PATCH /tasks/:id`, `PATCH /tasks/:id/status`. Why: the UI shows the goal title next to a task, and mutation responses carry what the cache needs. Rejected: `goalId` on `Task` (client would look the goal up separately).
 - ~~New `GET /tasks/by-goal`~~ (dropped in the second pass, see below) → `[{ goal: Goal, tasks: TaskItem[] }, …, { goal: null, tasks }]` («Без цілі» last). Added alongside `GET /goals/tasks` (goals with their steps) and `GET /tasks?goal=none`, which stay as they are for now.
 - `GET /tasks?goal=<id>` dropped; only `goal=none` remains. Why: a goal's steps come from `GET /goals/tasks`.
@@ -154,6 +154,8 @@ Decisions made while planning, with the reason behind each. Newest topics at the
 - **01 Architecture (2026-10-31):** client styles are plain CSS + CSS Modules instead of Tailwind v4 (`src/styles/global.css` with CSS variables from the prototype).
 - **04 API contract (2026-10-31):** title says stages 1–4 (there are four stages, see section 08).
 - **05 Auth (2026-10-31):** `set-password` admin script dropped (removed from sections 05 and 08); no way to recover a forgotten password until reset by email.
+- **01 Architecture (2026-10-31):** `repositories/` split into `tables/` and `multi/`; layer rules updated (section 09).
+- **Docs sync (2026-10-31):** older entries in this log marked as superseded by the second pass; 03 aligned with section 09 (transactions in multi-table repositories, plain `Task` from `GET /tasks`); `isDoneOn` and `CreateStepInput` listed in 01/02; git branch is `development`, not `dev` (07).
 
 ## Server internals (decided 2026-10-31, see section 09)
 
@@ -162,4 +164,3 @@ Decisions made while planning, with the reason behind each. Newest topics at the
 - Logging: Hono `logger()` (one line per request) + `console.error` with stack for 500s; never log bodies, cookies, tokens, passwords. `pino` later, with deployment.
 - Transactions: a separate layer of multi-table repositories (`repositories/multi/`) on top of table repositories (`repositories/tables/`). Multi-table repositories may use table repositories and are the only place that starts a transaction; table repositories never use multi-table ones; services may use both and never see `db` / `tx`. Table repositories are factories `createXRepo(db | tx)`. Why: the user wants services free of database code and no "table repository that secretly writes other tables". Rejected: services starting transactions (services would touch `db`), a Unit of Work layer (more machinery than needed), multi-table methods inside table repositories (a notes repository writing `tasks`).
 - Refresh rotation without a transaction: conditional `UPDATE … WHERE used = false RETURNING`.
-- **01 Architecture (2026-10-31):** `repositories/` split into `tables/` and `multi/`; layer rules updated (section 09).

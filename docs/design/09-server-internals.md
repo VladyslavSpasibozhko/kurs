@@ -59,10 +59,10 @@ routes → services → multi-table repositories → table repositories → db
 | Multi-table repositories | `repositories/multi/` | one action over several tables, each method in one transaction | table repositories, `db.transaction` |
 | Services | `services/` | decisions and checks | both kinds of repositories |
 
-Rules (enforced by Biome):
+Rules (enforced by Biome where it can express them, otherwise by review — see section 07):
 - Table repositories never import multi-table repositories.
 - Only multi-table repositories start transactions (`db.transaction`).
-- Services never import `db/`, `drizzle-orm` or `tx`.
+- Services never import `db/` or `drizzle-orm` and never receive a `tx`.
 - Repositories do data steps only; decisions stay in services (e.g. which goal-delete mode).
 
 Table repositories are created from a connection, so a multi-table repository can run them inside its transaction:

@@ -1,6 +1,6 @@
 # 03 — Data model (Postgres)
 
-Status: ✅ approved (2026-10-23)
+Status: ✅ approved (2026-10-23) · amended 2026-10-31 (`users`: `passwordHash`, no `googleId`)
 
 Based on `data/data_model_tables_with_names.png`, with fields the requirements need added (➕).
 Defined in `server/src/db/schema.ts` (Drizzle). IDs are UUIDs. Column names in camelCase, as in the diagram.
@@ -35,11 +35,12 @@ Defined in `server/src/db/schema.ts` (Drizzle). IDs are UUIDs. Column names in c
 
 ## Tables vs domain
 
-The API returns domain objects from `@kurs/shared`, not table rows. `TaskRepository` reads every task with
-`LEFT JOIN task_in_goal` and returns `TaskWithGoal { ...task, priority, goal: Goal | null }` (`goal` null → no goal,
-`priority` null without a goal). The domain `Task` itself is plain (no `goalId`, no `priority`).
-`TaskService` turns `goalId` / `priority` from `CreateTaskInput` / `UpdateTaskInput` into inserting, moving or
-deleting the `task_in_goal` row, in the same transaction as the task.
+The API returns domain objects from `@kurs/shared`, not table rows. The domain `Task` is plain (no `goalId`, no `priority`)
+and is what `GET /tasks` returns. Everywhere a task comes with its goal (task-with-goal lists, day plan, task mutations)
+the tasks repository reads it with `LEFT JOIN task_in_goal` and returns `TaskWithGoal { ...task, priority, goal: Goal | null }`
+(`goal` null → no goal, `priority` null without a goal).
+`TaskService` decides what `goalId` / `priority` from `CreateTaskInput` / `UpdateTaskInput` mean (insert, move or delete
+the `task_in_goal` row); a multi-table repository writes the task and that row in one transaction (section 09).
 
 **day_plans**
 - `id`, `userId`, `day` (date), ➕**UNIQUE(`userId`, `day`)**
@@ -76,7 +77,7 @@ Only `tasks.status` and `tasks.doneAt` record completion; `task_for_day` has no 
 
 ## Deleting a goal
 
-The user chooses one of two modes (`GoalService.delete(userId, goalId, mode)`, one transaction):
+The user chooses one of two modes (`GoalService.delete(userId, goalId, mode)`; the data steps run in one transaction in a multi-table repository, section 09):
 
 | Mode | Removes | Keeps |
 |---|---|---|
@@ -84,7 +85,7 @@ The user chooses one of two modes (`GoalService.delete(userId, goalId, mode)`, o
 | `delete` | the goal, its `task_in_goal` rows, its tasks (and their `task_for_day` rows) | — |
 
 - With `delete`, the deleted tasks also disappear from past days' history and from "done this month". The UI says so in the confirmation dialog.
-- Foreign keys: `task_in_goal.goalId` and `task_in_goal.taskId` → `ON DELETE CASCADE`; `task_for_day.taskId` → `ON DELETE CASCADE`. The service deletes the tasks explicitly in `delete` mode; cascades only clean up join rows.
+- Foreign keys: `task_in_goal.goalId` and `task_in_goal.taskId` → `ON DELETE CASCADE`; `task_for_day.taskId` → `ON DELETE CASCADE`. In `delete` mode the tasks are deleted explicitly (multi-table repository); cascades only clean up join rows.
 
 ## Indexes
 
@@ -93,11 +94,11 @@ Postgres does not index foreign-key columns automatically, so every index is lis
 | Table | Index | Used for |
 |---|---|---|
 | `users` | `UNIQUE(email)` | finding the user at login; one account per email |
-| `refresh_tokens` | PK `tokenHash`; `(userId)` | refresh lookup; revoking all of a user's tokens (reuse detection, logout) |
+| `refresh_tokens` | PK `tokenHash`; `(userId)` | refresh lookup and logout; revoking all of a user's tokens (reuse detection) |
 | `notes` | `(userId, createdAt DESC)` | notes list, newest first |
-| `goals` | `(userId, status)` | active goals, «Активних цілей» tile |
-| `tasks` | `(userId, status)` | «Без цілі» card, open tasks by quadrant, plan candidates |
-| `tasks` | `(userId, doneAt)` | "done this month" and its modal |
+| `goals` | `(userId, status)` | active goals (Goals page, goal dropdown) |
+| `tasks` | `(userId, status)` | task lists filtered by status, «Без цілі» card |
+| `tasks` | `(userId, doneAt)` | "done this month" (Progress, postponed) |
 | `task_in_goal` | `UNIQUE(taskId)`; `(goalId)` | a task's goal, "no goal" check; a goal's steps, goal deletion |
 | `day_plans` | `UNIQUE(userId, day)` | one plan per day; lookup by date |
 | `task_for_day` | `UNIQUE(dayId, taskId)`; `(taskId)` | a day's items; cascade on task delete, open tasks planned on past days |

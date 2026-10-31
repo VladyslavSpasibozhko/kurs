@@ -1,6 +1,6 @@
 # 02 — Shared packages: `@kurs/shared` and `@kurs/http`
 
-Status: ✅ approved
+Status: ✅ approved · amended 2026-10-23 (`PAST_DAY_READONLY` removed, `message` in `ApiErrorSchema`); 2026-10-31 (`INVALID_CREDENTIALS`, `inputs/auth.ts`)
 
 ## Two packages
 
@@ -29,10 +29,11 @@ shared/src/
     goal.ts         GoalSchema (no progress for now), StepItem (Task + priority), GoalWithTasks { ...goal, tasks: StepItem[] }
     day-plan.ts     DayPlanSchema { id, date, tasks: TaskWithGoal[] }
   inputs/
-    note.ts, task.ts, goal.ts, day-plan.ts, auth.ts (EmailSchema, PasswordSchema, RegisterInput, LoginInput, ChangePasswordInput)
+    note.ts, task.ts, goal.ts (incl. CreateStepInput), day-plan.ts, auth.ts (EmailSchema, PasswordSchema, RegisterInput, LoginInput, ChangePasswordInput)
                     CreateXInput, UpdateXInput — what services and MCP tools accept
   rules/
     quadrant.ts     quadrantOf(task)
+    done.ts         isDoneOn(task, day)
     progress.ts     goalProgress(steps)        — pure functions, no I/O
   errors.ts         ErrorCode: VALIDATION, UNAUTHORIZED, INVALID_CREDENTIALS, NOT_FOUND, CONFLICT, INTERNAL
 ```
@@ -137,7 +138,7 @@ What is checked at compile time:
 | `shared` must not import `http`, `server`, `client` | pnpm dependencies + TS project references |
 | `http` must not import `server`, `client` | pnpm dependencies + TS project references |
 | `client` must not import `server` | pnpm dependencies + TS project references |
-| server: `routes` → `services` → `repositories` | Biome `noRestrictedImports` |
+| server: `routes` → `services` → `repositories/multi` → `repositories/tables` (section 09) | Biome `noRestrictedImports` |
 | server `services` must not import `@kurs/http` | Biome `noRestrictedImports` |
 
 pnpm only links a package's declared dependencies into its `node_modules`, so an undeclared `@kurs/*` import fails with TS2307. Requirements: the root `package.json` holds only dev tooling (never `@kurs/*`), and `.npmrc` has no `shamefully-hoist` / `node-linker=hoisted`. Relative imports into another package fail `tsc -b` with TS6307 because each package's `tsconfig` covers only its own `src/`.
